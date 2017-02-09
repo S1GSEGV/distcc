@@ -46,6 +46,9 @@
 #include "state.h"
 #include "include_server_if.h"
 #include "emaillog.h"
+#ifdef XCODE_INTEGRATION
+#  include "xci.h"
+#endif
 
 /**
  * @file
@@ -252,40 +255,79 @@ int dcc_x_many_files(int ofd,
                      unsigned int n_files,
                      char **fnames)
 {
-    int ret;
+    int ret = 0;
     char link_points_to[MAXPATHLEN + 1];
     int is_link;
     const char *fname;
-    char *original_fname;
+    char *original_fname = NULL;
+#ifdef XCODE_INTEGRATION
+    /* NOTE: If this function is ever used for something besides pump
+     * mode support for sending things to be compiled, then it should
+     * take another argument to include/exclude this fixup. */
+    char *xci_original_fname, *xci_link_points_to;
+#endif
 
     dcc_x_token_int(ofd, "NFIL", n_files);
 
     for (; *fnames != NULL; ++fnames) {
         fname = *fnames;
         ret = dcc_get_original_fname(fname, &original_fname);
-        if (ret) return ret;
+        if (ret) goto out_error;
 
         if ((ret = dcc_is_link(fname, &is_link))) {
-            return ret;
+            goto out_error;
         }
 
+#ifdef XCODE_INTEGRATION
+        xci_original_fname = dcc_xci_mask_developer_dir(original_fname);
+        if (xci_original_fname) {
+            free(original_fname);
+            original_fname = xci_original_fname;
+            xci_original_fname = NULL;
+        } else {
+            ret = EXIT_OUT_OF_MEMORY;
+            goto out_error;
+        }
+#endif
+
         if (is_link) {
-            if ((ret = dcc_read_link(fname, link_points_to)) ||
-                (ret = dcc_x_token_string(ofd, "NAME", original_fname)) ||
+            if ((ret = dcc_read_link(fname, link_points_to))) {
+                goto out_error;
+            }
+#ifdef XCODE_INTEGRATION
+            xci_link_points_to = dcc_xci_mask_developer_dir(link_points_to);
+            if (xci_link_points_to) {
+                strlcpy(link_points_to, xci_link_points_to,
+                        sizeof(link_points_to));
+                free(xci_link_points_to);
+                xci_link_points_to = NULL;
+            } else {
+                ret = EXIT_OUT_OF_MEMORY;
+                goto out_error;
+            }
+#endif
+            if ((ret = dcc_x_token_string(ofd, "NAME", original_fname)) ||
                 (ret = dcc_x_token_string(ofd, "LINK", link_points_to))) {
-                    return ret;
+                    goto out_error;
             }
         } else {
             ret = dcc_x_token_string(ofd, "NAME", original_fname);
-            if (ret) return ret;
+            if (ret) goto out_error;
             /* File should be compressed already.
                If we ever support non-compressed server-side-cpp,
                we should have some checks here and then uncompress
                the file if it is compressed. */
             ret = dcc_x_file(ofd, fname, "FILE", DCC_COMPRESS_NONE,
                              NULL);
-            if (ret) return ret;
+            if (ret) goto out_error;
         }
+        free(original_fname);
+        original_fname = NULL;
     }
     return 0;
+    
+  out_error:
+    if (original_fname)
+        free(original_fname);
+    return ret;
 }

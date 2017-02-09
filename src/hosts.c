@@ -126,7 +126,7 @@ int dcc_randomize_host_list(struct dcc_hostdef **host_list, int length);
 int dcc_compare_container(const void *a, const void *b);
 
 
-#ifndef HAVE_STRNDUP
+#ifdef HAVE_STRNDUP
 /**
  * Copy at most @p size characters from @p src, plus a terminating nul.
  *

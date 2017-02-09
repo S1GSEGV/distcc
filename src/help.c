@@ -61,6 +61,8 @@ int dcc_show_version(const char *prog)
 "Copyright (C) 2002, 2003, 2004 by Martin Pool.\n"
 "Includes miniLZO (C) 1996-2002 by Markus Franz Xaver Johannes Oberhumer.\n"
 "Portions Copyright (C) 2007-2008 Google.\n"
+"Code from Apple's 2805 branch (https://opensource.apple.com/source/distcc/distcc-2805/) is merged to add Xcode support.\n"
+"Code hosted at: https://github.com/S1GSEGV/distcc under \"xcode-support\" branch\n"
 "\n"
 "distcc comes with ABSOLUTELY NO WARRANTY.  distcc is free software, and\n"
 "you may use, modify and redistribute it under the terms of the GNU \n"

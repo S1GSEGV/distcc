@@ -28,6 +28,7 @@ CPP = @CPP@
 # directory.  It is before I"$(srcdir)/src" to reflect VPATH semantics.
 CPPFLAGS = @CPPFLAGS@ ${DIR_DEFS} \
 	   -Isrc -I"$(srcdir)/src" -I"$(srcdir)/lzo" $(POPT_INCLUDES)
+PYTHON_SETUP_CFLAGS = @PYTHON_SETUP_CFLAGS@
 
 PYTHON = @PYTHON@
 
@@ -58,7 +59,8 @@ include_server_builddir = $(builddir)/_include_server
 
 # These must be done from here, not from autoconf, because they can 
 # contain variable expansions written in Make syntax.  Ew.
-DIR_DEFS = -DSYSCONFDIR="\"${sysconfdir}\"" -DPKGDATADIR="\"${pkgdatadir}\""
+DIR_DEFS = -DSYSCONFDIR="\"${sysconfdir}\"" -DPKGDATADIR="\"${pkgdatadir}\"" \
+           -DPREFIXDIR="\"${prefix}\""
 
 # arguments to pkgconfig
 GNOME_PACKAGES = @GNOME_PACKAGES@
@@ -67,7 +69,7 @@ GNOME_LIBS = @GNOME_LIBS@
 
 LIBS = @LIBS@
 
-DESTDIR =
+DESTDIR = $(DSTROOT)
 
 INSTALL = @INSTALL@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@ 
@@ -169,6 +171,7 @@ include_server_PY = \
 	include_server/cache_basics.py \
 	include_server/compiler_defaults.py \
 	include_server/compress_files.py \
+	include_server/headermap.py \
 	include_server/include_analyzer.py \
 	include_server/include_analyzer_memoizing_node.py \
 	include_server/include_server.py \
@@ -243,22 +246,24 @@ common_obj = src/arg.o src/argutil.o					\
 	src/dotd.o 							\
 	src/hosts.o src/hostfile.o					\
 	src/implicit.o src/loadfile.o					\
-	lzo/minilzo.o                                                   \
+	lzo/minilzo.o								\
 	@ZEROCONF_COMMON_OBJS@						\
-	@AUTH_COMMON_OBJS@
+	@AUTH_COMMON_OBJS@							\
+	@XCODE_INTEGRATION_COMMON_OBJS@					\
 
 distcc_obj = src/backoff.o						\
 	src/climasq.o src/clinet.o src/clirpc.o				\
 	src/compile.o src/cpp.o						\
 	src/distcc.o							\
+	src/emaillog.o							\
 	src/remote.o							\
 	src/ssh.o src/state.o src/strip.o				\
 	src/timefile.o src/traceenv.o					\
 	src/include_server_if.o						\
 	src/where.o							\
+	@XCODE_INTEGRATION_DISTCC_OBJS@					\
 	@ZEROCONF_DISTCC_OBJS@						\
 	@AUTH_DISTCC_OBJS@						\
-	src/emaillog.o							\
 	$(common_obj)
 
 distccd_obj = src/access.o						\
@@ -269,6 +274,7 @@ distccd_obj = src/access.o						\
 	src/serve.o src/setuid.o src/srvnet.o src/srvrpc.o src/state.o	\
 	src/stats.o							\
 	src/fix_debug_info.o						\
+	@XCODE_INTEGRATION_DISTCCD_OBJS@				\
 	@ZEROCONF_DISTCCD_OBJS@						\
 	@AUTH_DISTCCD_OBJS@						\
 	$(common_obj) @BUILD_POPT@
@@ -296,6 +302,7 @@ gnome_obj = src/history.o src/mon-gnome.o				\
 
 h_exten_obj = src/h_exten.o $(common_obj)
 h_issource_obj = src/h_issource.o $(common_obj)
+h_repsubstr_obj = src/h_repsubstr.o $(common_obj)
 h_scanargs_obj = src/h_scanargs.o $(common_obj)
 h_hosts_obj = src/h_hosts.o $(common_obj)
 h_argvtostr_obj = src/h_argvtostr.o $(common_obj)
@@ -324,7 +331,7 @@ SRC =	src/stats.c							\
 	src/h_argvtostr.c						\
 	src/h_exten.c src/h_hosts.c src/h_issource.c src/h_parsemask.c	\
 	src/h_sa2str.c src/h_scanargs.c src/h_strip.c			\
-	src/h_dotd.c src/h_compile.c src/h_getline.c			\
+	src/h_dotd.c src/h_compile.c src/h_getline.c h_repsubstr.c			\
 	src/help.c src/history.c src/hosts.c src/hostfile.c		\
 	src/implicit.c src/io.c						\
 	src/loadfile.c src/lock.c 					\
@@ -344,6 +351,8 @@ SRC =	src/stats.c							\
 	src/dotd.c src/include_server_if.c				\
 	src/emaillog.c							\
 	src/fix_debug_info.c						\
+	src/xci_headermap.c src/xci_utils.c src/xci_versinfo.c		\
+	src/xci_zeroconf.c						\
 	src/zeroconf.c src/zeroconf-reg.c src/gcc-id.c
 
 
@@ -351,6 +360,7 @@ HEADERS = src/stats.h							\
 	src/access.h							\
 	src/auth.h							\
 	src/bulk.h							\
+	src/byte_swapping.h					\
 	src/clinet.h src/compile.h					\
 	src/daemon.h							\
 	src/distcc.h src/dopt.h src/exitcode.h				\
@@ -367,8 +377,9 @@ HEADERS = src/stats.h							\
 	src/exec.h src/lock.h src/where.h src/srvnet.h			\
 	src/rslave.h							\
 	src/dotd.h src/include_server_if.h				\
-	src/emaillog.h 							\
-	src/va_copy.h 							\
+	src/emaillog.h							\
+	src/va_copy.h							\
+	src/xci.h							\
 	src/zeroconf.h
 
 conf_dir = packaging/RedHat/conf
@@ -423,6 +434,7 @@ check_PROGRAMS = \
 	h_fix_debug_info@EXEEXT@ \
 	h_hosts@EXEEXT@ \
 	h_issource@EXEEXT@ \
+	h_repsubstr@EXEEXT@ \
 	h_parsemask@EXEEXT@ \
 	h_sa2str@EXEEXT@ \
 	h_scanargs@EXEEXT@ \
@@ -513,6 +525,9 @@ h_exten@EXEEXT@: $(h_exten_obj)
 h_issource@EXEEXT@: $(h_issource_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(h_issource_obj) $(LIBS)
 
+h_repsubstr@EXEEXT@: $(h_repsubstr_obj)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(h_repsubstr_obj) $(LIBS)
+
 h_sa2str@EXEEXT@: $(h_sa2str_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(h_sa2str_obj) $(LIBS)
 
@@ -575,14 +590,16 @@ include-server:
 	  echo "Not building $@: No suitable python found"; \
 	else						\
 	  mkdir -p "$(include_server_builddir)" &&      \
-	  DISTCC_VERSION="$(VERSION)"			\
+	  cat "$(srcdir)/include_server/setup.py" |     \
+      DISTCC_VERSION="$(VERSION)"                   \
 	  SRCDIR="$(srcdir)"                            \
-	  CFLAGS="$(CFLAGS) $(PYTHON_CFLAGS)"           \
+	  PYTHON_CFLAGS="$(PYTHON_CFLAGS)"              \
+	  CFLAGS="$(PYTHON_SETUP_CFLAGS)"               \
 	  CPPFLAGS="$(CPPFLAGS)"                        \
-	  $(PYTHON) "$(srcdir)/include_server/setup.py" \
+	  $(PYTHON) - \
 	      build 					\
 	        --build-base="$(include_server_builddir)"  \
-	        --build-temp="$(include_server_builddir)"; \
+	        --build-temp="$(include_server_builddir)";  \
 	fi
 
 
@@ -684,9 +701,9 @@ man/include_server_1.html: man/include_server.1
 .PHONY: check_programs
 .PHONY: maintainer-check-no-set-path distcc-maintainer-check
 .PHONY: include-server-maintainer-check pump-maintainer-check
-.PHONY: maintainer-check 
+.PHONY: lzo-maintainer-check maintainer-check 
 .PHONY: check
-.PHONY: lzo-check valgrind-check single-test pump-single-test
+.PHONY: lzo-check pump-check valgrind-check single-test pump-single-test
 
 check_programs: $(check_PROGRAMS) $(bin_PROGRAMS)
 
@@ -759,11 +776,20 @@ pump-maintainer-check: pump include-server check_programs
 	        distcc-maintainer-check; \
 	fi
 
+# Do distcc-maintainer-check in lzo-mode (without pump), if possible.
+lzo-maintainer-check: check_programs
+	@DISTCC_HOSTS='<invalid>,cpp' \
+	  $(MAKE) \
+	      RESTRICTED_PATH="$(RESTRICTED_PATH)" \
+	      TESTDISTCC_OPTS="--lzo $(TESTDISTCC_OPTS)" \
+	      distcc-maintainer-check; \
+
+
 # Do distcc-maintainer-check, for non-pumped distcc, and try the include_server
 # check to check the include server's behavior, if applicable.  If the include
 # server exists, then carry out distcc-maintainer-check in pump-mode.
 maintainer-check: distcc-maintainer-check include-server-maintainer-check \
-	pump-maintainer-check
+	pump-maintainer-check lzo-maintainer-check
 
 check:
 	@if test -n "$(PYTHON)"; then \
@@ -777,8 +803,10 @@ check:
 	fi
 
 # Runs the tests in lzo-mode.
-lzo-check:
-	$(MAKE) TESTDISTCC_OPTS=--lzo maintainer-check
+lzo-check: lzo-maintainer-check
+
+# Runs the tests in pump-mode (,cpp,lzo).
+pump-check: pump-maintainer-check
 
 # Runs the tests with valgrind.
 valgrind-check:
@@ -937,14 +965,16 @@ clean-lzo:
 
 clean-include-server:
 	if test -n "$(PYTHON)"; then	\
-	  DISTCC_VERSION="$(VERSION)"			\
+	  cat "$(srcdir)/include_server/setup.py" |  \
+      DISTCC_VERSION="$(VERSION)"			     \
 	  SRCDIR="$(srcdir)"                            \
-	  CFLAGS="$(CFLAGS) $(PYTHON_CFLAGS)"           \
+	  PYTHON_CFLAGS="$(PYTHON_CFLAGS)"              \
+	  CFLAGS="$(PYTHON_SETUP_CFLAGS)"               \
 	  CPPFLAGS="$(CPPFLAGS)"                        \
-	  $(PYTHON) "$(srcdir)/include_server/setup.py" \
+	  $(PYTHON) - \
 	      clean	\
 	         --build-base="$(include_server_builddir)"  \
-	         --build-temp="$(include_server_builddir)"; \
+	         --build-temp="$(include_server_builddir)";  \
 	fi
 
 maintainer-clean: distclean \
@@ -1054,22 +1084,29 @@ install-programs: $(bin_PROGRAMS)
 # Also, on Cygwin the --record output is in DOS text file format (CR LF
 # line endings), so we need to convert it from DOS text file format to
 # Unix text file format (LF line endings); we use sed for that too.
+ifdef PYTHON_SETUP_HOME
+SETUP_OPT = --home="$(PYTHON_SETUP_HOME)"
+else # !PYTHON_SETUP_HOME
+SETUP_OPT = --prefix="$(prefix)"
+endif # !PYTHON_SETUP_HOME
 install-include-server: include-server pump
 	if test -z "$(PYTHON)"; then	\
 	  echo "Not building $@: No suitable python found"; \
 	else						\
 	  mkdir -p "$(include_server_builddir)" &&      \
-	  DESTDIR=`cd "$(DESTDIR)/" && pwd` &&            \
-	  DISTCC_VERSION="$(VERSION)"			\
+	  DESTDIR=`cd "$(DESTDIR)/" && pwd` &&          \
+	  cat "$(srcdir)/include_server/setup.py" |     \
+      DISTCC_VERSION="$(VERSION)"			        \
 	  SRCDIR="$(srcdir)"                            \
-	  CFLAGS="$(CFLAGS) $(PYTHON_CFLAGS)"           \
+	  PYTHON_CFLAGS="$(PYTHON_CFLAGS)"              \
+	  CFLAGS="$(PYTHON_SETUP_CFLAGS)"               \
 	  CPPFLAGS="$(CPPFLAGS)"                        \
-	  $(PYTHON) "$(srcdir)/include_server/setup.py" \
+	  $(PYTHON) - \
 	      build 					\
 	        --build-base="$(include_server_builddir)" \
 	        --build-temp="$(include_server_builddir)" \
 	      install 					\
-	         --prefix="$(prefix)" 			\
+	         $(SETUP_OPT)	 			\
 	         --record="$(include_server_builddir)/install.log.pre" \
 	         --root="$$DESTDIR"                     \
 	    || exit 1; \

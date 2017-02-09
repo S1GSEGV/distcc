@@ -44,7 +44,7 @@ extern int opt_lifetime;
 extern char *opt_listen_addr;
 extern int opt_niceness;
 
-#ifdef HAVE_AVAHI
+#if defined(HAVE_AVAHI) || (defined(XCODE_INTEGRATION) && defined(HAVE_DNSSD))
 extern int opt_zeroconf;
 #endif
 
@@ -57,4 +57,10 @@ extern int dcc_auth_enabled;
 extern int opt_blacklist_enabled;
 extern int opt_whitelist_enabled;
 extern const char *arg_list_file;
+#endif
+
+#ifdef XCODE_INTEGRATION
+extern int arg_priority;
+extern char *arg_system_version;
+extern char *arg_xcode_dir;
 #endif
