@@ -67,6 +67,17 @@
  * moment, and may never be.  If you need that level of control, using a
  * different invocation method is recommended.
  **/
+int scan_args_for_linker(char *argv[])
+{
+	char *a;
+	int i;
+	for (i = 0; (a = argv[i]); i++) {
+		if (str_startswith("-Xlinker", a)){
+                return 1;
+        }
+    }
+    return 0;
+}
 
 
 /**
@@ -93,7 +104,14 @@ int dcc_find_compiler(char **argv, char ***out_argv)
 
         /* change "distcc -c foo.c" -> "cc -c foo.c" */
         free((*out_argv)[0]);
-        (*out_argv)[0] = strdup("cc");
+
+        if (scan_args_for_linker(argv)) {
+            (*out_argv)[0] = strdup("clang++");
+        }
+        else{
+            (*out_argv)[0] = strdup("clang");
+        }
+
         if ((*out_argv)[0] == NULL) {
           return EXIT_OUT_OF_MEMORY;
         }
